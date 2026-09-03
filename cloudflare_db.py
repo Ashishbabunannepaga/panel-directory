@@ -2,7 +2,7 @@
 """
 Production REST API Client for Cloudflare D1 with Live Cloud Sync & Local Mirror Fallback.
 Features:
-- Live Cloudflare D1 Data Fetching & Sync
+- Live Cloudflare D1 Data Fetching & Pipeline Status Tracking
 - In-Memory Bulk Caching
 - Advanced Multi-Faceted Query Engine
 - User Authentication & RBAC
@@ -17,7 +17,7 @@ import time
 import sqlite3
 import hashlib
 import os
-from typing import List, Dict, Any, Optional,Tuple
+from typing import List, Dict, Any, Optional, Tuple
 
 try:
     from rapidfuzz import fuzz
@@ -139,8 +139,29 @@ class CloudflareD1:
         return self._query_local(sql, params)
 
     # =========================================================================
-    # 🔄 CLOUDFLARE D1 LIVE SYNC PIPELINE
+    # 🔄 CLOUDFLARE D1 LIVE SYNC & PIPELINE STATUS
     # =========================================================================
+
+    def get_pipeline_status(self) -> Dict[str, Any]:
+        """Returns the health status of Cloudflare D1 and local storage."""
+        local_rows = self._query_local("SELECT count(*) as cnt FROM companies")
+        local_cnt = local_rows[0]["cnt"] if local_rows else 0
+
+        cloud_cnt = "Unknown"
+        cloud_online = False
+        try:
+            res = self.query("SELECT count(*) as cnt FROM companies")
+            if res:
+                cloud_cnt = res[0].get("cnt", 0)
+                cloud_online = True
+        except Exception:
+            cloud_online = False
+
+        return {
+            "cloud_online": cloud_online,
+            "cloud_count": cloud_cnt,
+            "local_count": local_cnt
+        }
 
     def sync_from_cloudflare_d1(self) -> Tuple[int, str]:
         """Pulls all records directly from Cloudflare D1 into local database."""
@@ -182,29 +203,29 @@ class CloudflareD1:
         except Exception as e:
             return 0, f"Sync error: {e}"
 
-    def get_pipeline_status(self) -> Dict[str, Any]:
-        """Returns the health status of Cloudflare D1 and local storage."""
-        local_rows = self._query_local("SELECT count(*) as cnt FROM companies")
-        local_cnt = local_rows[0]["cnt"] if local_rows else 0
+    # =========================================================================
+    # 🔍 PREDICTIVE AUTOCOMPLETE SUGGESTIONS
+    # =========================================================================
 
-        cloud_cnt = "Unknown"
-        cloud_online = False
-        try:
-            res = self.query("SELECT count(*) as cnt FROM companies")
-            if res:
-                cloud_cnt = res[0].get("cnt", 0)
-                cloud_online = True
-        except Exception:
-            cloud_online = False
-
-        return {
-            "cloud_online": cloud_online,
-            "cloud_count": cloud_cnt,
-            "local_count": local_cnt
-        }
+    def get_quick_suggestions(self, term: str, limit: int = 6) -> List[Dict[str, Any]]:
+        """Fast autocomplete prediction engine for live typing."""
+        if not term or len(term.strip()) < 2:
+            return []
+        
+        pat = f"%{term.strip().lower()}%"
+        sql = """
+            SELECT panel_no, canonical_name, pincode, nature_of_business
+            FROM companies
+            WHERE LOWER(canonical_name) LIKE ?
+               OR LOWER(aliases) LIKE ?
+               OR LOWER(representatives) LIKE ?
+            ORDER BY canonical_name ASC
+            LIMIT ?;
+        """
+        return self._query_local(sql, [pat, pat, pat, limit])
 
     # =========================================================================
-    # USER & AUTHENTICATION METHODS
+    # 👤 USER & AUTHENTICATION METHODS
     # =========================================================================
 
     def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
@@ -239,7 +260,7 @@ class CloudflareD1:
         return True
 
     # =========================================================================
-    # MULTI-FACETED QUERY & KPI DASHBOARD
+    # 📊 MULTI-FACETED QUERY & KPI DASHBOARD
     # =========================================================================
 
     def get_portal_kpis(self) -> Dict[str, Any]:
@@ -266,7 +287,7 @@ class CloudflareD1:
         has_email: bool = False,
         has_phone: bool = False,
         has_website: bool = False,
-        limit: int = 200
+        limit: int = 300
     ) -> List[Dict[str, Any]]:
         conditions = ["1=1"]
         params = []
@@ -316,7 +337,7 @@ class CloudflareD1:
         return self._query_local(sql, params)
 
     # =========================================================================
-    # DEDUPLICATION & UPSERT
+    # 🗃️ DEDUPLICATION & UPSERT
     # =========================================================================
 
     def check_fuzzy_duplicate(
@@ -467,39 +488,4 @@ class CloudflareD1:
             self.insert_company_smart(comp_data, fuzzy_check=False)
         self._query_local("UPDATE possible_duplicates SET status = ? WHERE id = ?", [action, dup_id])
         self.query("UPDATE possible_duplicates SET status = ? WHERE id = ?", [action, dup_id])
-
-    def get_quick_suggestions(self, term: str, limit: int = 6) -> List[Dict[str, Any]]:
-        """Fast autocomplete prediction engine for live typing."""
-        if not term or len(term.strip()) < 2:
-            return []
         
-        pat = f"%{term.strip().lower()}%"
-        sql = """
-            SELECT panel_no, canonical_name, pincode, nature_of_business
-            FROM companies
-            WHERE LOWER(canonical_name) LIKE ?
-               OR LOWER(aliases) LIKE ?
-               OR LOWER(representatives) LIKE ?
-            ORDER BY canonical_name ASC
-            LIMIT ?;
-        """
-        return self._query_local(sql, [pat, pat, pat, limit])
-    
-    def delete_company_by_id(self, comp_id: str) -> bool:
-        """Deletes a specific company by ID from both local DB and Cloudflare D1."""
-        sql = "DELETE FROM companies WHERE id = ?"
-        self._query_local(sql, [comp_id])
-        self.query(sql, [comp_id])
-        return True
-
-    def purge_all_unknown_entities(self) -> int:
-        """Purges all Unknown Entity / blank placeholder records."""
-        count_rows = self._query_local(
-            "SELECT count(*) as cnt FROM companies WHERE LOWER(TRIM(canonical_name)) IN ('unknown entity', 'unknown', 'none', '') OR canonical_name IS NULL"
-        )
-        total = count_rows[0]["cnt"] if count_rows else 0
-
-        sql = "DELETE FROM companies WHERE LOWER(TRIM(canonical_name)) IN ('unknown entity', 'unknown', 'none', '') OR canonical_name IS NULL"
-        self._query_local(sql)
-        self.query(sql)
-        return total
