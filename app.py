@@ -195,7 +195,7 @@ if not st.session_state.authenticated:
 
     with col_center:
         st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
-        auth_tab_login, auth_tab_register = st.tabs(["🔑 Sign In", "📝 Create User Account"])
+        auth_tab_login = st.tabs(["🔑 Sign In"])
 
         with auth_tab_login:
             st.subheader("Login to Portal")
