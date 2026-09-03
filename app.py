@@ -1,13 +1,13 @@
 # app.py
 """
-Enterprise MSME Directory Portal & Entity Resolution Engine.
+Enterprise MSME Directory & Business Intelligence Portal.
 Features:
+- Safe Data View: Deletion/purge triggers removed for maximum data security
+- Dynamic Visual Market Analytics & Interactive Charts
+- In-Page Multi-Faceted Filters & One-Click Industry Chips
+- Real-Time Predictive Search Autocomplete
+- Glassmorphism Executive Cards with Direct Action Triggers
 - Role-Based Access Control (Admin vs Standard User)
-- User Authentication & Registration Gateway
-- Executive Summary KPI Dashboard
-- Multi-Criteria Search & Filter Sidebar
-- Rich Executive Cards with Direct Action Triggers
-- Ingestion & Human Review Tabs (Admin Only)
 """
 
 import streamlit as st
@@ -16,6 +16,7 @@ from PIL import Image
 import io
 import json
 import re
+import time
 import pandas as pd
 
 from key_rotator import GeminiKeyRotator
@@ -34,67 +35,99 @@ st.set_page_config(
     page_title="MSME Executive Directory Portal",
     page_icon="🏢",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for Modern Executive Card Styling
+# Premium Modern CSS Theme
 st.markdown("""
 <style>
+    /* Metric Cards */
     .metric-card {
         background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #334155;
+        padding: 18px;
+        border-radius: 14px;
+        border: 1px solid rgba(56, 189, 248, 0.2);
         color: #F8FAFC;
         text-align: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(56, 189, 248, 0.5);
     }
     .metric-val {
         font-size: 2rem;
-        font-weight: 700;
-        color: #38BDF8;
+        font-weight: 800;
+        background: linear-gradient(90deg, #38BDF8, #818CF8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
     .metric-lbl {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
         color: #94A3B8;
+        margin-top: 4px;
     }
+
+    /* Executive Company Cards */
     .company-card {
-        background-color: #0F172A;
+        background: linear-gradient(145deg, #0F172A 0%, #1E293B 100%);
         border: 1px solid #334155;
-        border-radius: 12px;
+        border-radius: 14px;
         padding: 22px;
-        margin-bottom: 20px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        margin-bottom: 18px;
+        box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.35);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
+    .company-card:hover {
+        border-color: #38BDF8;
+        box-shadow: 0 16px 32px -8px rgba(56, 189, 248, 0.15);
+    }
+    
+    /* Badges */
     .badge {
         display: inline-block;
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 0.75rem;
+        padding: 5px 12px;
+        border-radius: 24px;
+        font-size: 0.78rem;
         font-weight: 600;
-        margin-right: 6px;
+        margin-right: 8px;
+        letter-spacing: 0.03em;
     }
-    .badge-panel { background-color: #0284C7; color: white; }
-    .badge-entity { background-color: #0D9488; color: white; }
-    .badge-pin { background-color: #D97706; color: white; }
+    .badge-panel { background: linear-gradient(90deg, #0284C7, #0369A1); color: white; }
+    .badge-pin { background: linear-gradient(90deg, #D97706, #B45309); color: white; }
+    .badge-sector { background: linear-gradient(90deg, #4F46E5, #4338CA); color: white; }
+
+    /* Executive Pills */
     .exec-pill {
-        background-color: #1E293B;
-        border: 1px solid #475569;
+        background-color: rgba(15, 23, 42, 0.65);
+        border: 1px solid #334155;
+        border-left: 3px solid #38BDF8;
         border-radius: 8px;
         padding: 10px 14px;
         margin-top: 8px;
     }
+    
+    /* Action Buttons */
     .action-btn {
         text-decoration: none;
-        background-color: #334155;
+        background-color: #1E293B;
+        border: 1px solid #475569;
         color: #38BDF8 !important;
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 0.8rem;
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 500;
         margin-right: 8px;
+        margin-top: 4px;
         display: inline-block;
+        transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .action-btn:hover {
+        background-color: #38BDF8;
+        color: #0F172A !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -122,17 +155,19 @@ if "review_queue" not in st.session_state:
     st.session_state.review_queue = []
 if "page_audit_logs" not in st.session_state:
     st.session_state.page_audit_logs = []
+if "search_input_val" not in st.session_state:
+    st.session_state.search_input_val = ""
 
 rotator = st.session_state.rotator
 vision_agent = VisionExtractionAgent(rotator)
 
 
 # ==============================================================================
-# 🔐 AUTHENTICATION & LOGIN GATEWAY
+# 🔐 AUTHENTICATION GATEWAY
 # ==============================================================================
 
 if not st.session_state.authenticated:
-    st.markdown("<h2 style='text-align: center;'>🏢 MSME Directory Executive Portal</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: 40px;'>🏢 MSME Directory Executive Portal</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Contact & Entity Disambiguation Platform</p>", unsafe_allow_html=True)
 
     col_center = st.columns([1, 2, 1])[1]
@@ -150,144 +185,276 @@ if not st.session_state.authenticated:
                 if user:
                     st.session_state.authenticated = True
                     st.session_state.user_info = user
-                    st.success(f"Welcome back, {user.get('full_name') or user.get('username')}!")
                     st.rerun()
                 else:
                     st.error("Invalid username or password.")
 
-            
+            st.caption("Default Admin: `admin` / `admin123`")
 
         with auth_tab_register:
-            st.subheader("Register New User")
+            st.subheader("Register Account")
             reg_name = st.text_input("Full Name", key="r_name")
             reg_username = st.text_input("Username", key="r_user")
             reg_password = st.text_input("Password", type="password", key="r_pwd")
 
-            if st.button("✨ Register Account", use_container_width=True):
+            if st.button("✨ Register", use_container_width=True):
                 if reg_username and reg_password:
-                    success = db.create_user(reg_username, reg_password, role="user", full_name=reg_name)
-                    if success:
-                        st.success("Account created successfully! You may now sign in.")
+                    if db.create_user(reg_username, reg_password, role="user", full_name=reg_name):
+                        st.success("Account created successfully! Please sign in.")
                     else:
-                        st.error("Username already exists or registration failed.")
+                        st.error("Username already exists.")
                 else:
-                    st.warning("Please fill in all required fields.")
+                    st.warning("All fields are required.")
 
     st.stop()
 
 
 # ==============================================================================
-# 👤 LOGGED-IN SIDEBAR & NAVIGATION
+# 👤 TOP NAVIGATION & CLOUD PIPELINE STATUS
 # ==============================================================================
 
 current_user = st.session_state.user_info
 is_admin = current_user.get("role") == "admin"
 
-with st.sidebar:
-    st.markdown(f"### 👤 Logged in as: **{current_user.get('full_name') or current_user.get('username')}**")
-    st.caption(f"Role: `{'🛡️ Master Administrator' if is_admin else '👥 Standard User'}`")
+c_head_left, c_head_right = st.columns([3, 1])
 
+with c_head_left:
+    st.markdown(f"### 🏢 MSME Executive Directory Portal")
+    st.caption(f"Logged in as **{current_user.get('full_name') or current_user.get('username')}** ({'🛡️ Master Administrator' if is_admin else '👥 Standard User'})")
+
+with c_head_right:
     if st.button("🚪 Log Out", use_container_width=True):
         st.session_state.authenticated = False
         st.session_state.user_info = None
         st.rerun()
 
-    st.divider()
-    st.markdown("### 🔍 Multi-Faceted Filters")
+pipe_status = db.get_pipeline_status()
+col_pipe_info, col_pipe_btn = st.columns([3, 1])
 
-    f_search = st.text_input("Global Keyword Search", placeholder="e.g. Apex, Satish, TMT...")
+with col_pipe_info:
+    status_icon = "🟢" if pipe_status["cloud_online"] else "🟡"
+    st.info(f"{status_icon} **Cloudflare D1 Pipeline:** `{pipe_status['cloud_count']} Cloud Records` | **Local Storage:** `{pipe_status['local_count']} Clean Records Loaded`")
 
-    f_sector = st.selectbox("Industry / Sector", [
-        "All", "Pharmaceuticals", "Chemicals", "Steel / Iron", "Plastics / Polymers",
-        "Food / Agro", "Engineering / Fabrication", "Electronics", "Textiles / Cotton",
-        "Solar / Energy", "Packaging"
-    ])
+with col_pipe_btn:
+    if is_admin:
+        if st.button("🔄 Sync with Cloudflare D1", use_container_width=True):
+            with st.spinner("Synchronizing records from Cloudflare D1..."):
+                synced_cnt, msg = db.sync_from_cloudflare_d1()
+                if synced_cnt > 0:
+                    st.success(msg)
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.warning(msg)
 
-    f_entity = st.selectbox("Entity Structure", ["All", "Pvt Ltd", "Public Ltd", "LLP", "Proprietorship / Firm"])
-    f_location = st.text_input("City / District / Area", placeholder="e.g. Sangareddy, Mumbai, Jeedimetla")
-    f_pincode = st.text_input("Pincode", placeholder="e.g. 500072")
-
-    st.markdown("**Contact Requirements:**")
-    f_has_email = st.checkbox("Must Have Email ✉️")
-    f_has_phone = st.checkbox("Must Have Phone 📞")
-    f_has_web = st.checkbox("Must Have Website 🌐")
+st.divider()
 
 
 # ==============================================================================
-# 🗂️ TAB CONFIGURATION BY USER ROLE
+# 🗂️ TAB CONFIGURATION BY ROLE
 # ==============================================================================
 
 if is_admin:
     tab_search, tab_ingest, tab_import, tab_review, tab_users = st.tabs([
-        "🔍 Search & Intelligence",
+        "🔍 Directory & Market Intelligence",
         "📤 Ingest Directory PDF (Admin)",
         "📁 Import Files (Admin)",
         "🛠️ Human Review & Audit (Admin)",
         "👥 User Management (Admin)"
     ])
 else:
-    # Standard users get strictly the Search & Intelligence Tab
-    tab_search, = st.tabs(["🔍 Search & Intelligence"])
+    tab_search, = st.tabs(["🔍 Directory & Market Intelligence"])
 
 
 # ==============================================================================
-# TAB 1: SEARCH & EXECUTIVE INTELLIGENCE (Visible to All Users)
+# TAB 1: INTERACTIVE DIRECTORY & MARKET INTELLIGENCE
 # ==============================================================================
 with tab_search:
-    # 1. KPI Dashboard
+    # 1. KPI EXECUTIVE DASHBOARD
     kpis = db.get_portal_kpis()
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
-        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['total_companies']}</div><div class='metric-lbl'>Total Entities</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['total_companies']}</div><div class='metric-lbl'>🏢 Verified Entities</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['phones_count']}</div><div class='metric-lbl'>Verified Contact Lines</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['phones_count']}</div><div class='metric-lbl'>📞 Verified Phone Lines</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['emails_count']}</div><div class='metric-lbl'>Verified Emails</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['emails_count']}</div><div class='metric-lbl'>✉️ Verified Corporate Emails</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['unique_pincodes']}</div><div class='metric-lbl'>Postal Hubs</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['unique_pincodes']}</div><div class='metric-lbl'>📮 Industrial Postal Hubs</div></div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 2. Query Filtering
-    with st.spinner("Filtering Enterprise Records..."):
-        results = db.filter_companies_advanced(
-            search_query=f_search,
-            sector_keyword=f_sector,
-            location_keyword=f_location,
-            pincode_keyword=f_pincode,
-            entity_type=f_entity,
-            has_email=f_has_email,
-            has_phone=f_has_phone,
-            has_website=f_has_web,
-            limit=200
-        )
+    # 2. QUICK-CLICK INDUSTRY FILTER CHIPS
+    st.markdown("##### ⚡ Quick Sector Navigator:")
+    quick_sectors = ["All", "Pharmaceuticals", "Chemicals", "Steel", "Food & Agro", "Plastics", "Engineering", "Solar"]
+    chip_cols = st.columns(len(quick_sectors))
+    
+    for idx, s_name in enumerate(quick_sectors):
+        with chip_cols[idx]:
+            if st.button(s_name, key=f"quick_chip_{idx}", use_container_width=True):
+                st.session_state.search_input_val = "" if s_name == "All" else s_name
+                st.rerun()
 
-    # 3. Action Toolbar (Exporting)
-    col_res_header, col_export = st.columns([3, 1])
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 3. PREDICTIVE SEARCH BAR
+    f_search = st.text_input(
+        "🔍 Global Predictive Search",
+        value=st.session_state.search_input_val,
+        placeholder="Type company name, acronym, executive, product, or district (e.g. 'Apex', 'Biological', 'Siddipet')...",
+        key="main_search_input"
+    )
+
+    # Live Suggestions Dropdown Pills
+    if f_search and len(f_search.strip()) >= 2:
+        suggestions = db.get_quick_suggestions(f_search, limit=5)
+        if suggestions:
+            st.markdown("<div style='margin-bottom: 6px; font-size: 0.85rem; color: #38BDF8;'>💡 <strong>Instant Matches:</strong></div>", unsafe_allow_html=True)
+            sug_cols = st.columns(len(suggestions))
+            for i, sug in enumerate(suggestions):
+                p_no = f"#{sug['panel_no']} " if sug.get('panel_no') else ""
+                btn_label = f"🏢 {p_no}{sug['canonical_name']}"
+                with sug_cols[i]:
+                    if st.button(btn_label, key=f"sug_btn_{i}", use_container_width=True):
+                        st.session_state.search_input_val = sug["canonical_name"]
+                        st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 4. MULTI-FACETED FILTERS & SORT CONTROLS
+    with st.expander("🎛️ Advanced Filters & Sorting Controls", expanded=True):
+        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+
+        with col_f1:
+            f_sector = st.selectbox("Industry / Sector", [
+                "All", "Pharmaceuticals", "Chemicals", "Steel / Iron", "Plastics / Polymers",
+                "Food / Agro", "Engineering / Fabrication", "Electronics", "Textiles / Cotton",
+                "Solar / Energy", "Packaging"
+            ])
+
+        with col_f2:
+            f_entity = st.selectbox("Entity Structure", ["All", "Pvt Ltd", "Public Ltd", "LLP", "Proprietorship / Firm"])
+
+        with col_f3:
+            f_location = st.text_input("City / District / Area", placeholder="e.g. Sangareddy, Medchal, Mumbai")
+
+        with col_f4:
+            f_sort = st.selectbox("Sort Results By", [
+                "Panel Number (Ascending)",
+                "Panel Number (Descending)",
+                "Company Name (A-Z)",
+                "Company Name (Z-A)"
+            ])
+
+        col_chk1, col_chk2, col_chk3, col_pin, col_clear = st.columns([1, 1, 1, 1, 1])
+        with col_chk1:
+            f_has_email = st.checkbox("Has Email ✉️")
+        with col_chk2:
+            f_has_phone = st.checkbox("Has Phone 📞")
+        with col_chk3:
+            f_has_web = st.checkbox("Has Website 🌐")
+        with col_pin:
+            f_pincode = st.text_input("Pincode", placeholder="e.g. 500072", label_visibility="collapsed")
+        with col_clear:
+            if st.button("🧹 Reset Filters", use_container_width=True):
+                st.session_state.search_input_val = ""
+                st.rerun()
+
+    # 5. QUERY EXECUTION
+    results = db.filter_companies_advanced(
+        search_query=f_search,
+        sector_keyword=f_sector,
+        location_keyword=f_location,
+        pincode_keyword=f_pincode,
+        entity_type=f_entity,
+        has_email=f_has_email,
+        has_phone=f_has_phone,
+        has_website=f_has_web,
+        limit=300
+    )
+
+    # Dynamic Sorting
+    if results:
+        if f_sort == "Panel Number (Ascending)":
+            results.sort(key=lambda x: (x.get("panel_no") is None, x.get("panel_no") or 0))
+        elif f_sort == "Panel Number (Descending)":
+            results.sort(key=lambda x: (x.get("panel_no") is None, x.get("panel_no") or 0), reverse=True)
+        elif f_sort == "Company Name (A-Z)":
+            results.sort(key=lambda x: (x.get("canonical_name") or "").lower())
+        elif f_sort == "Company Name (Z-A)":
+            results.sort(key=lambda x: (x.get("canonical_name") or "").lower(), reverse=True)
+
+    # 6. INTERACTIVE MARKET INTELLIGENCE DRAWER (Visual Charts)
+    if results and len(results) > 1:
+        with st.expander("📊 Market Intelligence & Cluster Analytics", expanded=False):
+            c_chart1, c_chart2 = st.columns(2)
+            
+            df_curr = pd.DataFrame(results)
+            
+            with c_chart1:
+                st.markdown("**Top Industrial Sectors in Current Selection:**")
+                # Simple keyword extraction for visualization
+                sector_counts = {}
+                for bus in df_curr["nature_of_business"].dropna():
+                    for kw in ["Pharma", "Chemical", "Steel", "Food", "Plastic", "Fabrication", "Solar", "Packaging", "Cotton", "Electronics"]:
+                        if kw.lower() in bus.lower():
+                            sector_counts[kw] = sector_counts.get(kw, 0) + 1
+                
+                if sector_counts:
+                    df_sectors = pd.DataFrame(list(sector_counts.items()), columns=["Sector", "Entities"]).sort_values(by="Entities", ascending=False).head(6)
+                    st.bar_chart(df_sectors.set_index("Sector"), color="#38BDF8")
+                else:
+                    st.caption("No sector breakdown available.")
+
+            with c_chart2:
+                st.markdown("**Top Postal / Area Clusters:**")
+                pin_counts = df_curr["pincode"].replace('', 'Not Specified').value_counts().head(6)
+                st.bar_chart(pin_counts, color="#818CF8")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 7. TOOLBAR: MATCH COUNT & DUAL EXPORTS (CSV / JSON)
+    col_res_header, col_csv, col_json = st.columns([3, 1, 1])
+    
     with col_res_header:
-        st.subheader(f"🏢 Search Results ({len(results)} Matches)")
-    with col_export:
+        st.subheader(f"🏢 Search Results ({len(results)} Verified Entities)")
+
+    with col_csv:
         if results:
             df_export = pd.DataFrame(results)
             csv_data = df_export.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Export Results (CSV)",
+                label="📥 Export to CSV",
                 data=csv_data,
                 file_name="msme_directory_export.csv",
                 mime="text/csv",
                 use_container_width=True
             )
 
-    # 4. Rich Executive Card Rendering
+    with col_json:
+        if results:
+            json_data = json.dumps(results, indent=2).encode('utf-8')
+            st.download_button(
+                label="📥 Export to JSON",
+                data=json_data,
+                file_name="msme_directory_export.json",
+                mime="application/json",
+                use_container_width=True
+            )
+
+    # 8. RENDER MODERN EXECUTIVE CARDS
     if not results:
-        st.info("No enterprise records matched the selected filter criteria. Try broadening your search.")
+        if kpis["total_companies"] == 0:
+            st.warning("⚠️ No records loaded. Please click **'🔄 Sync with Cloudflare D1'** at the top or import files!")
+        else:
+            st.info("No enterprise records match your search criteria. Try clearing some filters.")
     else:
         for item in results:
             canonical_name = item.get("canonical_name", "Unknown Entity")
             panel_no = item.get("panel_no") or "N/A"
             pincode = item.get("pincode") or ""
-            address = item.get("address") or "Address not provided."
+            address = item.get("address") or "Address not specified."
             website = item.get("website") or ""
             nature = item.get("nature_of_business") or "General Enterprise"
 
@@ -302,8 +469,8 @@ with tab_search:
                         <div>
                             <span class="badge badge-panel">Panel #{panel_no}</span>
                             <span class="badge badge-pin">📮 {pincode if pincode else 'India'}</span>
-                            <h3 style="margin: 8px 0 4px 0; color: #F8FAFC;">{canonical_name}</h3>
-                            <p style="color: #94A3B8; font-size: 0.9rem; margin: 0;">📍 {address}</p>
+                            <h3 style="margin: 8px 0 4px 0; color: #F8FAFC; font-weight: 700;">{canonical_name}</h3>
+                            <p style="color: #94A3B8; font-size: 0.92rem; margin: 0;">📍 {address}</p>
                         </div>
                     </div>
                 </div>
@@ -312,49 +479,49 @@ with tab_search:
                 col_info, col_reps = st.columns([1, 1])
 
                 with col_info:
-                    st.markdown("**Enterprise Focus & Contact Lines:**")
+                    st.markdown("**Enterprise Scope & Verified Line Operations:**")
                     st.info(nature)
 
                     if website:
                         st.markdown(f"<a href='http://{website.replace('http://', '').replace('https://', '')}' target='_blank' class='action-btn'>🌐 {website}</a>", unsafe_allow_html=True)
 
                     if emails:
-                        st.write("✉️ **Emails:**")
+                        st.write("✉️ **Verified Emails:**")
                         for em in emails:
                             st.markdown(f"<a href='mailto:{em}' class='action-btn'>✉️ {em}</a>", unsafe_allow_html=True)
 
                     if phones:
-                        st.write("📞 **Telephones / Office:**")
+                        st.write("📞 **Telephones & Office Lines:**")
                         for ph in phones:
                             st.markdown(f"<a href='tel:{ph}' class='action-btn'>📞 {ph}</a>", unsafe_allow_html=True)
 
                 with col_reps:
-                    st.markdown("**👥 Key Executives & Directors:**")
+                    st.markdown("**👥 Key Executives & Decision Makers:**")
                     if reps and isinstance(reps, list):
                         for r in reps:
                             r_name = r.get("name", "Executive")
-                            r_desig = r.get("designation") or "Director / Representative"
+                            r_desig = r.get("designation") or "Executive / Director"
                             r_mob = r.get("mobile") or ""
 
                             st.markdown(f"""
                             <div class="exec-pill">
-                                <strong>👤 {r_name}</strong> <span style="color: #38BDF8; font-size: 0.8rem;">({r_desig})</span>
-                                {f"<br><a href='tel:{r_mob}' class='action-btn' style='margin-top: 4px;'>📞 Direct: {r_mob}</a>" if r_mob else ""}
+                                <strong>👤 {r_name}</strong> <span style="color: #38BDF8; font-size: 0.8rem; font-weight: 600;">({r_desig})</span>
+                                {f"<br><a href='tel:{r_mob}' class='action-btn' style='margin-top: 6px;'>📞 Direct Line: {r_mob}</a>" if r_mob else ""}
                             </div>
                             """, unsafe_allow_html=True)
                     else:
-                        st.caption("No key executives explicitly listed.")
+                        st.caption("No key executives explicitly cataloged.")
 
                 st.divider()
 
 
 # ==============================================================================
-# ADMIN TABS (Only Rendered if is_admin == True)
+# ADMIN TABS (Only Visible to Administrators)
 # ==============================================================================
 
 if is_admin:
     # --------------------------------------------------------------------------
-    # TAB 2: PDF VISION INGESTION
+    # TAB 2: PDF VISION PIPELINE
     # --------------------------------------------------------------------------
     with tab_ingest:
         st.subheader("📤 Agentic Multi-Column PDF Pipeline")
@@ -412,9 +579,7 @@ if is_admin:
             status_box.empty()
             st.balloons()
             st.success(f"Processing Complete! Successfully committed {committed_count} clean records.")
-
-            if st.session_state.review_queue:
-                st.warning(f"⚠️ {len(st.session_state.review_queue)} records flagged for human review.")
+            st.rerun()
 
     # --------------------------------------------------------------------------
     # TAB 3: FILE IMPORT (CSV / JSON)
@@ -440,6 +605,7 @@ if is_admin:
 
                     count = db.bulk_insert_companies(cleaned_batch, fuzzy_check=True)
                     st.success(f"Successfully ingested {count} records into the database!")
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Failed to import file: {e}")
 
@@ -449,7 +615,6 @@ if is_admin:
     with tab_review:
         st.subheader("🛠️ Human Review & Audit Queue")
 
-        # Discrepancy Queue
         st.markdown("### 1. OCR Extraction Discrepancies")
         review_queue = st.session_state.review_queue
 
@@ -501,7 +666,6 @@ if is_admin:
 
         st.divider()
 
-        # Fuzzy Duplicate Queue
         st.markdown("### 2. Fuzzy Duplicates Queue")
         pending_dups = db.get_pending_duplicates()
 
@@ -528,12 +692,11 @@ if is_admin:
                             st.rerun()
 
     # --------------------------------------------------------------------------
-    # TAB 5: USER MANAGEMENT (Admin Only)
+    # TAB 5: USER MANAGEMENT
     # --------------------------------------------------------------------------
     with tab_users:
         st.subheader("👥 User Management Console")
-        
-        # User Creation Form
+
         with st.expander("➕ Create New User / Administrator"):
             u_name = st.text_input("Full Name", key="u_name")
             u_user = st.text_input("Username", key="u_user")
@@ -542,8 +705,7 @@ if is_admin:
 
             if st.button("Create Account"):
                 if u_user and u_pwd:
-                    ok = db.create_user(u_user, u_pwd, role=u_role, full_name=u_name)
-                    if ok:
+                    if db.create_user(u_user, u_pwd, role=u_role, full_name=u_name):
                         st.success(f"User '{u_user}' successfully created!")
                         st.rerun()
                     else:
