@@ -18,7 +18,7 @@ import json
 import re
 import time
 import pandas as pd
-
+from typing import List, Dict, Any, Optional, Tuple
 from key_rotator import GeminiKeyRotator
 from cloudflare_db import CloudflareD1
 from agent_engine import (
