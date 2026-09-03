@@ -1,8 +1,12 @@
 # cloudflare_db.py
 """
-Production REST API Client for Cloudflare D1 with Local SQLite Mirror Fallback.
-Features: Authentication, User Management, Advanced Multi-Faceted Filtering,
-Fuzzy Deduplication, and Idempotent Upserts.
+Production REST API Client for Cloudflare D1 with Live Cloud Sync & Local Mirror Fallback.
+Features:
+- Live Cloudflare D1 Data Fetching & Sync
+- In-Memory Bulk Caching
+- Advanced Multi-Faceted Query Engine
+- User Authentication & RBAC
+- Fuzzy Deduplication
 """
 
 import requests
@@ -13,7 +17,7 @@ import time
 import sqlite3
 import hashlib
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional,Tuple
 
 try:
     from rapidfuzz import fuzz
@@ -25,14 +29,11 @@ LOCAL_DB_PATH = "local_d1_mirror.db"
 
 
 def hash_password(password: str) -> str:
-    """Secure SHA-256 password hashing with salt."""
     salt = "MSME_PORTAL_SECURE_SALT_2026"
     return hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
 
 
 class CloudflareD1:
-    """High-performance D1 client with in-memory bulk caching and Local SQLite fallback."""
-
     def __init__(self, account_id: str, database_id: str, api_token: str):
         self.url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/d1/database/{database_id}/query"
         self.headers = {
@@ -44,7 +45,6 @@ class CloudflareD1:
         self._ensure_default_admin()
 
     def _init_local_sqlite(self):
-        """Initializes local SQLite mirror database."""
         conn = sqlite3.connect(LOCAL_DB_PATH)
         cur = conn.cursor()
         cur.execute("""
@@ -91,7 +91,6 @@ class CloudflareD1:
         conn.close()
 
     def _ensure_default_admin(self):
-        """Seeds default admin if no users exist."""
         admin_user = self.get_user_by_username("admin")
         if not admin_user:
             self.create_user("admin", "admin123", role="admin", full_name="Master Administrator")
@@ -140,6 +139,71 @@ class CloudflareD1:
         return self._query_local(sql, params)
 
     # =========================================================================
+    # 🔄 CLOUDFLARE D1 LIVE SYNC PIPELINE
+    # =========================================================================
+
+    def sync_from_cloudflare_d1(self) -> Tuple[int, str]:
+        """Pulls all records directly from Cloudflare D1 into local database."""
+        try:
+            cloud_records = self.query("SELECT * FROM companies LIMIT 5000;")
+            if not cloud_records:
+                return 0, "No records found in Cloudflare D1 or quota reached."
+
+            conn = sqlite3.connect(LOCAL_DB_PATH)
+            cur = conn.cursor()
+
+            count = 0
+            for comp in cloud_records:
+                cur.execute("""
+                INSERT OR REPLACE INTO companies (
+                    id, panel_no, raw_name, canonical_name, normalized_name, aliases,
+                    address, pincode, website, phones, emails, representatives, nature_of_business
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """, (
+                    comp.get("id") or str(uuid.uuid4()),
+                    comp.get("panel_no"),
+                    comp.get("raw_name") or comp.get("canonical_name") or "Unknown Entity",
+                    comp.get("canonical_name") or "Unknown Entity",
+                    comp.get("normalized_name") or "",
+                    comp.get("aliases") or "[]",
+                    comp.get("address") or "",
+                    comp.get("pincode") or "",
+                    comp.get("website") or "",
+                    comp.get("phones") or "[]",
+                    comp.get("emails") or "[]",
+                    comp.get("representatives") or "[]",
+                    comp.get("nature_of_business") or ""
+                ))
+                count += 1
+
+            conn.commit()
+            conn.close()
+            return count, f"Successfully synchronized {count} records from Cloudflare D1!"
+        except Exception as e:
+            return 0, f"Sync error: {e}"
+
+    def get_pipeline_status(self) -> Dict[str, Any]:
+        """Returns the health status of Cloudflare D1 and local storage."""
+        local_rows = self._query_local("SELECT count(*) as cnt FROM companies")
+        local_cnt = local_rows[0]["cnt"] if local_rows else 0
+
+        cloud_cnt = "Unknown"
+        cloud_online = False
+        try:
+            res = self.query("SELECT count(*) as cnt FROM companies")
+            if res:
+                cloud_cnt = res[0].get("cnt", 0)
+                cloud_online = True
+        except Exception:
+            cloud_online = False
+
+        return {
+            "cloud_online": cloud_online,
+            "cloud_count": cloud_cnt,
+            "local_count": local_cnt
+        }
+
+    # =========================================================================
     # USER & AUTHENTICATION METHODS
     # =========================================================================
 
@@ -167,24 +231,20 @@ class CloudflareD1:
         return res[0] if res else None
 
     def get_all_users(self) -> List[Dict[str, Any]]:
-        sql = "SELECT id, username, role, full_name, created_at FROM users ORDER BY created_at DESC"
-        return self._query_local(sql)
+        return self._query_local("SELECT id, username, role, full_name, created_at FROM users ORDER BY created_at DESC")
 
     def delete_user(self, user_id: str) -> bool:
-        sql = "DELETE FROM users WHERE id = ?"
-        self._query_local(sql, [user_id])
-        self.query(sql, [user_id])
+        self._query_local("DELETE FROM users WHERE id = ?", [user_id])
+        self.query("DELETE FROM users WHERE id = ?", [user_id])
         return True
 
     # =========================================================================
-    # ADVANCED MULTI-FACETED FILTERING & SEARCH
+    # MULTI-FACETED QUERY & KPI DASHBOARD
     # =========================================================================
 
     def get_portal_kpis(self) -> Dict[str, Any]:
-        """Calculates dashboard summary metrics."""
         companies = self._query_local("SELECT pincode, emails, phones, nature_of_business FROM companies")
         total_companies = len(companies)
-
         emails_count = sum(1 for c in companies if c.get("emails") and c.get("emails") != "[]")
         phones_count = sum(1 for c in companies if c.get("phones") and c.get("phones") != "[]")
         pincodes_count = len(set(c.get("pincode") for c in companies if c.get("pincode")))
@@ -206,9 +266,8 @@ class CloudflareD1:
         has_email: bool = False,
         has_phone: bool = False,
         has_website: bool = False,
-        limit: int = 150
+        limit: int = 200
     ) -> List[Dict[str, Any]]:
-        """Multi-criteria search filter engine."""
         conditions = ["1=1"]
         params = []
 
@@ -216,12 +275,13 @@ class CloudflareD1:
             pat = f"%{search_query.strip().lower()}%"
             conditions.append("""(
                 LOWER(canonical_name) LIKE ? OR 
+                LOWER(raw_name) LIKE ? OR 
                 LOWER(normalized_name) LIKE ? OR 
                 LOWER(aliases) LIKE ? OR 
                 LOWER(representatives) LIKE ? OR 
                 LOWER(nature_of_business) LIKE ?
             )""")
-            params.extend([pat, pat, pat, pat, pat])
+            params.extend([pat, pat, pat, pat, pat, pat])
 
         if sector_keyword and sector_keyword != "All":
             conditions.append("LOWER(nature_of_business) LIKE ?")
@@ -407,3 +467,39 @@ class CloudflareD1:
             self.insert_company_smart(comp_data, fuzzy_check=False)
         self._query_local("UPDATE possible_duplicates SET status = ? WHERE id = ?", [action, dup_id])
         self.query("UPDATE possible_duplicates SET status = ? WHERE id = ?", [action, dup_id])
+
+    def get_quick_suggestions(self, term: str, limit: int = 6) -> List[Dict[str, Any]]:
+        """Fast autocomplete prediction engine for live typing."""
+        if not term or len(term.strip()) < 2:
+            return []
+        
+        pat = f"%{term.strip().lower()}%"
+        sql = """
+            SELECT panel_no, canonical_name, pincode, nature_of_business
+            FROM companies
+            WHERE LOWER(canonical_name) LIKE ?
+               OR LOWER(aliases) LIKE ?
+               OR LOWER(representatives) LIKE ?
+            ORDER BY canonical_name ASC
+            LIMIT ?;
+        """
+        return self._query_local(sql, [pat, pat, pat, limit])
+    
+    def delete_company_by_id(self, comp_id: str) -> bool:
+        """Deletes a specific company by ID from both local DB and Cloudflare D1."""
+        sql = "DELETE FROM companies WHERE id = ?"
+        self._query_local(sql, [comp_id])
+        self.query(sql, [comp_id])
+        return True
+
+    def purge_all_unknown_entities(self) -> int:
+        """Purges all Unknown Entity / blank placeholder records."""
+        count_rows = self._query_local(
+            "SELECT count(*) as cnt FROM companies WHERE LOWER(TRIM(canonical_name)) IN ('unknown entity', 'unknown', 'none', '') OR canonical_name IS NULL"
+        )
+        total = count_rows[0]["cnt"] if count_rows else 0
+
+        sql = "DELETE FROM companies WHERE LOWER(TRIM(canonical_name)) IN ('unknown entity', 'unknown', 'none', '') OR canonical_name IS NULL"
+        self._query_local(sql)
+        self.query(sql)
+        return total
