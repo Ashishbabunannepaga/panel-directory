@@ -1,0 +1,72 @@
+[
+  {
+    "panel_no": 142,
+    "canonical_name": "Harika Drugs (P) Ltd.",
+    "address": "H.No. 5-5-35/145/NR, Plot No.110, Prasanth Nagar, Kukatpally, Hyderabad 500 072",
+    "pincode": "500072",
+    "phones": ["914023814863", "23700915"],
+    "emails": ["purchase@harikadrugs.com", "info@harikadrugs.com", "harikadrugs@yahoo.co.in"],
+    "website": "",
+    "representatives": [{"name": "U.Amarnath", "designation": "Mg.Dir.", "mobile": "23700915"}],
+    "nature_of_business": "Manufacturers of Pheniramine Maleate"
+  },
+  {
+    "panel_no": 146,
+    "canonical_name": "Medha Servo Drives (P) Ltd.",
+    "address": "P-4/5B, IDA Nacharam Hyderabad 500 076",
+    "pincode": "500076",
+    "phones": ["04067237001"],
+    "emails": ["accounts@medhaindia.com"],
+    "website": "www.medhaindia.com",
+    "representatives": [
+      {"name": "Kashyap Reddy Yadavelli", "designation": "MD", "mobile": "27173990"},
+      {"name": "P.S.Babu", "designation": "Exec-Dir.", "mobile": ""},
+      {"name": "N.Srinivas Reddy", "designation": "Exec-Dir.", "mobile": ""}
+    ],
+    "nature_of_business": "Design & Manufacturers of Cocomotive Control Equipment, Power Electronics, Speed-Time Distance Recorders & Motor Control Equip."
+  },
+  {
+    "panel_no": 153,
+    "canonical_name": "Jai Raj Ispat Ltd.",
+    "address": "Plot No : 8, Phase - III, IDA Jeedimetla, Hyderabad 500 055",
+    "pincode": "500055",
+    "phones": ["23191234"],
+    "emails": ["admin.jdm@jairajispat.com", "akk@jairajispat.com", "psk@jairajispat.com", "suneelbabu@jairajispat.com"],
+    "website": "www.jairajispat.com",
+    "representatives": [
+      {"name": "A.K.Kanodia", "designation": "CFO", "mobile": "9949993009"},
+      {"name": "P.Srinivasa Kumar", "designation": "Asst. Vice President", "mobile": "9949993006"},
+      {"name": "SuneelBabu Katakam", "designation": "GM - Legal & Admin.", "mobile": "9959789948"}
+    ],
+    "nature_of_business": "Manufacturer of Iron & Steel Products - TMT Steel Bars ranging from 8mm to 32 mm dia; DRI-Sponge Iron;"
+  },
+  {
+    "panel_no": 154,
+    "canonical_name": "Neospark Drugs & Chemicals Pvt. Ltd.",
+    "address": "Corporate Centre, 241, B.L.Bagh, Panjagutta Hyderabad 500 082",
+    "pincode": "500082",
+    "phones": ["49012345"],
+    "emails": ["mail@neospark.co.in", "chandrasekharg@neospark.co.in"],
+    "website": "www.neospark.com",
+    "representatives": [
+      {"name": "Dr.V.S.Prasad", "designation": "Dir.", "mobile": ""},
+      {"name": "U. Ankamma Rao", "designation": "Dir.", "mobile": ""},
+      {"name": "Dr. M. Kumaraswamy", "designation": "Dir.", "mobile": ""}
+    ],
+    "nature_of_business": "Manufacturers of Veterinary Pharmaceutical Formulations, Live stock feed supplements and premixes."
+  },
+  {
+    "panel_no": 155,
+    "canonical_name": "Arichemicals India Pvt. Ltd.",
+    "address": "Flat No.101, Papali Residency H.No.6-1-116/1, Padmaraonagar Secunderabad 500 025",
+    "pincode": "500025",
+    "phones": ["27502048"],
+    "emails": ["arichemindia@gmail.com"],
+    "website": "",
+    "representatives": [
+      {"name": "Dr J.Prasad", "designation": "Mg.Dir.", "mobile": ""},
+      {"name": "J.Anand", "designation": "Dir.", "mobile": ""}
+    ],
+    "nature_of_business": "Manufacturers of Speciality Chemicals (Catelyst Preparators)"
+  }
+]

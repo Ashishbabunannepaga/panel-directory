@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.env
+
+# Streamlit Local Secrets (DO NOT COMMIT SECRETS TO GITHUB)
+.streamlit/secrets.toml
+
+# Local SQLite Database Mirror Cache
+local_d1_mirror.db
+local_d1_mirror.db-journal
+
+# Temporary Files & Scans
+*.pdf
+*.csv
+*.xlsx
+*.png
+*.jpg
+temp/
+
+# IDE & OS Specific
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
