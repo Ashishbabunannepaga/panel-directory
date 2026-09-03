@@ -209,7 +209,7 @@ if not st.session_state.authenticated:
             else:
                 st.error("Invalid username or password.")
 
-        st.caption("Default Admin: `admin` / `admin123`")
+        
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
