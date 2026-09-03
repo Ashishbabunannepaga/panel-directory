@@ -211,7 +211,7 @@ if not st.session_state.authenticated:
                 else:
                     st.error("Invalid username or password.")
 
-            st.caption("Default Admin: `admin` / `admin123`")
+            
 
         with auth_tab_register:
             st.subheader("Register Account")
