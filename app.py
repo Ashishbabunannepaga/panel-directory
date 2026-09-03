@@ -1,17 +1,16 @@
 # app.py
 """
 Enterprise MSME Directory & Business Intelligence Portal.
+Theme: Modern Executive Light Mode (High Contrast & Clean Typography)
 Features:
-- Google-Style Vertical Autocomplete Prediction Dropdown
-- Smooth Auto-Scroll to Resulting Cards on Search/Enter
-- In-Page Multi-Faceted Filters & Sector Quick-Chips
-- Safe Data View: Deletion/Purge triggers removed for data safety
-- Glassmorphism Executive Cards with Direct Action Triggers
+- Responsive 2-Column Side-by-Side Card Grid (Widescreen Optimized)
+- Compact Side-by-Side Search Bar & Dropdown Command Center
+- Instant First-Screen View (Zero Unnecessary Scrolling)
 - Role-Based Access Control (Admin vs Standard User)
+- Light-Themed Executive Cards with Direct Action Triggers
 """
 
 import streamlit as st
-import streamlit.components.v1 as components
 import pymupdf as fitz
 from PIL import Image
 import io
@@ -39,98 +38,117 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom Executive Theme with Google-Style Dropdown Styling
+# Modern Executive Light Mode CSS
 st.markdown("""
 <style>
+    /* Global Light Background */
+    .stApp {
+        background-color: #F8FAFC;
+        color: #0F172A;
+    }
+
     /* Metric Cards */
     .metric-card {
-        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
-        padding: 18px;
-        border-radius: 14px;
-        border: 1px solid rgba(56, 189, 248, 0.2);
-        color: #F8FAFC;
+        background: linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%);
+        padding: 14px;
+        border-radius: 12px;
+        border: 1px solid #E2E8F0;
+        color: #0F172A;
         text-align: center;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(2, 132, 199, 0.12);
+        border-color: #38BDF8;
     }
     .metric-val {
-        font-size: 2rem;
+        font-size: 1.6rem;
         font-weight: 800;
-        background: linear-gradient(90deg, #38BDF8, #818CF8);
+        background: linear-gradient(90deg, #0284C7, #4F46E5);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
     .metric-lbl {
-        font-size: 0.8rem;
+        font-size: 0.74rem;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #94A3B8;
-        margin-top: 4px;
+        letter-spacing: 0.06em;
+        color: #64748B;
+        font-weight: 600;
+        margin-top: 3px;
     }
 
-    /* Google-Style Dropdown Container */
-    .google-dropdown-box {
-        background-color: #1E293B;
-        border: 1px solid #38BDF8;
-        border-radius: 0 0 14px 14px;
-        padding: 8px 12px;
-        margin-top: -14px;
-        margin-bottom: 20px;
-        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
+    /* 2-Column Side-by-Side Executive Card */
+    .company-card-grid {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+        transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+        min-height: 100%;
     }
-
-    /* Executive Company Cards */
-    .company-card {
-        background: linear-gradient(145deg, #0F172A 0%, #1E293B 100%);
-        border: 1px solid #334155;
-        border-radius: 14px;
-        padding: 22px;
-        margin-bottom: 18px;
-        box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.35);
-        transition: border-color 0.2s ease;
-    }
-    .company-card:hover {
-        border-color: #38BDF8;
+    .company-card-grid:hover {
+        border-color: #0284C7;
+        box-shadow: 0 8px 24px rgba(2, 132, 199, 0.12);
+        transform: translateY(-2px);
     }
     
     /* Badges */
     .badge {
         display: inline-block;
-        padding: 5px 12px;
-        border-radius: 24px;
-        font-size: 0.78rem;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.72rem;
         font-weight: 600;
-        margin-right: 8px;
+        margin-right: 6px;
+        letter-spacing: 0.02em;
     }
     .badge-panel { background: linear-gradient(90deg, #0284C7, #0369A1); color: white; }
     .badge-pin { background: linear-gradient(90deg, #D97706, #B45309); color: white; }
 
     /* Executive Pills */
     .exec-pill {
-        background-color: rgba(15, 23, 42, 0.65);
-        border: 1px solid #334155;
-        border-left: 3px solid #38BDF8;
-        border-radius: 8px;
-        padding: 10px 14px;
-        margin-top: 8px;
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-left: 3px solid #0284C7;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-top: 6px;
+        font-size: 0.85rem;
+        color: #1E293B;
     }
     
     /* Action Buttons */
     .action-btn {
         text-decoration: none;
-        background-color: #1E293B;
-        border: 1px solid #475569;
-        color: #38BDF8 !important;
-        padding: 5px 12px;
-        border-radius: 8px;
-        font-size: 0.82rem;
-        font-weight: 500;
-        margin-right: 8px;
+        background-color: #F1F5F9;
+        border: 1px solid #CBD5E1;
+        color: #0369A1 !important;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        margin-right: 5px;
         margin-top: 4px;
         display: inline-block;
+        transition: all 0.2s ease;
     }
     .action-btn:hover {
-        background-color: #38BDF8;
-        color: #0F172A !important;
+        background-color: #0284C7;
+        color: #FFFFFF !important;
+        border-color: #0284C7;
+    }
+
+    /* Auth Box */
+    .auth-container {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -160,24 +178,23 @@ if "page_audit_logs" not in st.session_state:
     st.session_state.page_audit_logs = []
 if "search_input_val" not in st.session_state:
     st.session_state.search_input_val = ""
-if "should_scroll" not in st.session_state:
-    st.session_state.should_scroll = False
 
 rotator = st.session_state.rotator
 vision_agent = VisionExtractionAgent(rotator)
 
 
 # ==============================================================================
-# 🔐 AUTHENTICATION GATEWAY
+# 🔐 AUTHENTICATION GATEWAY (Light Mode)
 # ==============================================================================
 
 if not st.session_state.authenticated:
-    st.markdown("<h2 style='text-align: center; margin-top: 40px;'>🏢 MSME Directory Executive Portal</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Contact & Entity Disambiguation Platform</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: 40px; color: #0F172A;'>🏢 MSME Directory Executive Portal</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #64748B;'>Enterprise Contact & Entity Disambiguation Platform</p>", unsafe_allow_html=True)
 
     col_center = st.columns([1, 2, 1])[1]
 
     with col_center:
+        st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
         auth_tab_login, auth_tab_register = st.tabs(["🔑 Sign In", "📝 Create User Account"])
 
         with auth_tab_login:
@@ -210,12 +227,14 @@ if not st.session_state.authenticated:
                         st.error("Username already exists.")
                 else:
                     st.warning("All fields are required.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
 
 
 # ==============================================================================
-# 👤 TOP NAVIGATION & CLOUD PIPELINE STATUS
+# 👤 TOP NAVIGATION & CLOUD PIPELINE STATUS (Light Mode)
 # ==============================================================================
 
 current_user = st.session_state.user_info
@@ -261,129 +280,101 @@ st.divider()
 
 if is_admin:
     tab_search, tab_ingest, tab_import, tab_review, tab_users = st.tabs([
-        "🔍 Directory & Market Intelligence",
+        "🔍 Directory & Intelligence",
         "📤 Ingest Directory PDF (Admin)",
         "📁 Import Files (Admin)",
         "🛠️ Human Review & Audit (Admin)",
         "👥 User Management (Admin)"
     ])
 else:
-    tab_search, = st.tabs(["🔍 Directory & Market Intelligence"])
+    tab_search, = st.tabs(["🔍 Directory & Intelligence"])
 
 
 # ==============================================================================
-# TAB 1: GOOGLE-STYLE PREDICTIVE SEARCH & EXECUTIVE INTELLIGENCE
+# TAB 1: 2-COLUMN LIGHT THEMED DIRECTORY INTELLIGENCE
 # ==============================================================================
 with tab_search:
-    # 1. KPI EXECUTIVE DASHBOARD
+    # 1. COMPACT LIGHT KPI STRIP
     kpis = db.get_portal_kpis()
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
         st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['total_companies']}</div><div class='metric-lbl'>🏢 Verified Entities</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['phones_count']}</div><div class='metric-lbl'>📞 Verified Phone Lines</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['phones_count']}</div><div class='metric-lbl'>📞 Phone Lines</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['emails_count']}</div><div class='metric-lbl'>✉️ Verified Corporate Emails</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['emails_count']}</div><div class='metric-lbl'>✉️ Corporate Emails</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['unique_pincodes']}</div><div class='metric-lbl'>📮 Industrial Postal Hubs</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><div class='metric-val'>{kpis['unique_pincodes']}</div><div class='metric-lbl'>📮 Postal Hubs</div></div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 2. QUICK-CLICK INDUSTRY FILTER CHIPS
-    st.markdown("##### ⚡ Quick Sector Navigator:")
-    quick_sectors = ["All", "Pharmaceuticals", "Chemicals", "Steel", "Food & Agro", "Plastics", "Engineering", "Solar"]
-    chip_cols = st.columns(len(quick_sectors))
-    
-    for idx, s_name in enumerate(quick_sectors):
-        with chip_cols[idx]:
-            if st.button(s_name, key=f"quick_chip_{idx}", use_container_width=True):
-                st.session_state.search_input_val = "" if s_name == "All" else s_name
-                st.session_state.should_scroll = True
-                st.rerun()
+    # 2. SIDE-BY-SIDE SEARCH & FILTER COMMAND BAR
+    col_search, col_sector, col_entity, col_sort = st.columns([4, 2.5, 2.2, 2.3])
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    with col_search:
+        f_search = st.text_input(
+            "Search Keyword",
+            value=st.session_state.search_input_val,
+            placeholder="🔍 Search company name, director, keyword (e.g. 'Apex', 'Biological')...",
+            label_visibility="collapsed"
+        )
 
-    # 3. GOOGLE-STYLE PREDICTIVE SEARCH BAR
-    def on_search_enter():
-        st.session_state.should_scroll = True
+    with col_sector:
+        f_sector = st.selectbox(
+            "Industry",
+            ["All Sectors", "Pharmaceuticals", "Chemicals", "Steel / Iron", "Plastics / Polymers",
+             "Food / Agro", "Engineering / Fabrication", "Electronics", "Textiles / Cotton",
+             "Solar / Energy", "Packaging"],
+            label_visibility="collapsed"
+        )
+        sector_filter_val = "All" if f_sector == "All Sectors" else f_sector
 
-    f_search = st.text_input(
-        "🔍 Global Predictive Search",
-        value=st.session_state.search_input_val,
-        placeholder="Search company name, director, product, or location (Press Enter to jump to results)...",
-        key="main_search_input",
-        on_change=on_search_enter
-    )
+    with col_entity:
+        f_entity = st.selectbox(
+            "Structure",
+            ["All Structures", "Pvt Ltd", "Public Ltd", "LLP", "Proprietorship / Firm"],
+            label_visibility="collapsed"
+        )
+        entity_filter_val = "All" if f_entity == "All Structures" else f_entity
 
-    # GOOGLE-STYLE VERTICAL PREDICTIONS OVERLAY (Directly beneath the input box)
-    if f_search and len(f_search.strip()) >= 2:
-        suggestions = db.get_quick_suggestions(f_search, limit=6)
-        if suggestions:
-            st.markdown("<div class='google-dropdown-box'>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size: 0.78rem; color: #94A3B8; margin-bottom: 6px; padding-left: 6px;'>PREDICTED MATCHES (Click to jump):</div>", unsafe_allow_html=True)
-            
-            for i, sug in enumerate(suggestions):
-                p_no = f"Panel #{sug['panel_no']}" if sug.get('panel_no') else "Verified Entity"
-                loc_summary = sug.get('nature_of_business', '')[:45] + "..." if sug.get('nature_of_business') else ""
-                btn_text = f"🔍  {sug['canonical_name']}   —   [{p_no}]   {loc_summary}"
-                
-                if st.button(btn_text, key=f"g_sug_{i}", use_container_width=True):
-                    st.session_state.search_input_val = sug["canonical_name"]
-                    st.session_state.should_scroll = True
-                    st.rerun()
-            
-            st.markdown("</div>", unsafe_allow_html=True)
+    with col_sort:
+        f_sort = st.selectbox(
+            "Sort Order",
+            ["Panel # (Asc)", "Panel # (Desc)", "Name (A-Z)", "Name (Z-A)"],
+            label_visibility="collapsed"
+        )
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # 3. COMPACT SECONDARY FILTER STRIP
+    col_loc, col_pin, col_em, col_ph, col_wb, col_rst = st.columns([3, 2, 1.4, 1.4, 1.4, 1.2])
 
-    # 4. MULTI-FACETED FILTERS & SORT CONTROLS
-    with st.expander("🎛️ Advanced Filters & Sorting Controls", expanded=False):
-        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+    with col_loc:
+        f_location = st.text_input("Area", placeholder="📍 City / District / Area...", label_visibility="collapsed")
 
-        with col_f1:
-            f_sector = st.selectbox("Industry / Sector", [
-                "All", "Pharmaceuticals", "Chemicals", "Steel / Iron", "Plastics / Polymers",
-                "Food / Agro", "Engineering / Fabrication", "Electronics", "Textiles / Cotton",
-                "Solar / Energy", "Packaging"
-            ])
+    with col_pin:
+        f_pincode = st.text_input("Pincode", placeholder="📮 Pincode (e.g. 500072)", label_visibility="collapsed")
 
-        with col_f2:
-            f_entity = st.selectbox("Entity Structure", ["All", "Pvt Ltd", "Public Ltd", "LLP", "Proprietorship / Firm"])
+    with col_em:
+        f_has_email = st.checkbox("Email ✉️")
 
-        with col_f3:
-            f_location = st.text_input("City / District / Area", placeholder="e.g. Sangareddy, Medchal, Mumbai")
+    with col_ph:
+        f_has_phone = st.checkbox("Phone 📞")
 
-        with col_f4:
-            f_sort = st.selectbox("Sort Results By", [
-                "Panel Number (Ascending)",
-                "Panel Number (Descending)",
-                "Company Name (A-Z)",
-                "Company Name (Z-A)"
-            ])
+    with col_wb:
+        f_has_web = st.checkbox("Web 🌐")
 
-        col_chk1, col_chk2, col_chk3, col_pin, col_clear = st.columns([1, 1, 1, 1, 1])
-        with col_chk1:
-            f_has_email = st.checkbox("Has Email ✉️")
-        with col_chk2:
-            f_has_phone = st.checkbox("Has Phone 📞")
-        with col_chk3:
-            f_has_web = st.checkbox("Has Website 🌐")
-        with col_pin:
-            f_pincode = st.text_input("Pincode", placeholder="e.g. 500072", label_visibility="collapsed")
-        with col_clear:
-            if st.button("🧹 Reset Filters", use_container_width=True):
-                st.session_state.search_input_val = ""
-                st.session_state.should_scroll = False
-                st.rerun()
+    with col_rst:
+        if st.button("🧹 Reset", use_container_width=True):
+            st.session_state.search_input_val = ""
+            st.rerun()
 
-    # 5. QUERY EXECUTION
+    # 4. EXECUTE QUERY
     results = db.filter_companies_advanced(
         search_query=f_search,
-        sector_keyword=f_sector,
+        sector_keyword=sector_filter_val,
         location_keyword=f_location,
         pincode_keyword=f_pincode,
-        entity_type=f_entity,
+        entity_type=entity_filter_val,
         has_email=f_has_email,
         has_phone=f_has_phone,
         has_website=f_has_web,
@@ -392,48 +383,27 @@ with tab_search:
 
     # Dynamic Sorting
     if results:
-        if f_sort == "Panel Number (Ascending)":
+        if f_sort == "Panel # (Asc)":
             results.sort(key=lambda x: (x.get("panel_no") is None, x.get("panel_no") or 0))
-        elif f_sort == "Panel Number (Descending)":
+        elif f_sort == "Panel # (Desc)":
             results.sort(key=lambda x: (x.get("panel_no") is None, x.get("panel_no") or 0), reverse=True)
-        elif f_sort == "Company Name (A-Z)":
+        elif f_sort == "Name (A-Z)":
             results.sort(key=lambda x: (x.get("canonical_name") or "").lower())
-        elif f_sort == "Company Name (Z-A)":
+        elif f_sort == "Name (Z-A)":
             results.sort(key=lambda x: (x.get("canonical_name") or "").lower(), reverse=True)
 
-    # 6. ANCHOR TARGET FOR SMOOTH AUTO-SCROLL
-    st.markdown("<div id='search-results-target'></div>", unsafe_allow_html=True)
-
-    # Trigger Smooth Auto-Scroll via JavaScript if a search was performed
-    if (f_search or st.session_state.should_scroll) and results:
-        components.html(
-            """
-            <script>
-                setTimeout(() => {
-                    const target = window.parent.document.getElementById('search-results-target');
-                    if (target) {
-                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }, 150);
-            </script>
-            """,
-            height=0,
-            width=0
-        )
-        st.session_state.should_scroll = False
-
-    # 7. TOOLBAR: MATCH COUNT & EXPORTS
+    # 5. MATCH COUNT & EXPORT TOOLBAR
     col_res_header, col_csv, col_json = st.columns([3, 1, 1])
     
     with col_res_header:
-        st.subheader(f"🏢 Search Results ({len(results)} Verified Entities)")
+        st.markdown(f"#### 🏢 Matches ({len(results)} Entities Found)")
 
     with col_csv:
         if results:
             df_export = pd.DataFrame(results)
             csv_data = df_export.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Export to CSV",
+                label="📥 Export CSV",
                 data=csv_data,
                 file_name="msme_directory_export.csv",
                 mime="text/csv",
@@ -444,83 +414,88 @@ with tab_search:
         if results:
             json_data = json.dumps(results, indent=2).encode('utf-8')
             st.download_button(
-                label="📥 Export to JSON",
+                label="📥 Export JSON",
                 data=json_data,
                 file_name="msme_directory_export.json",
                 mime="application/json",
                 use_container_width=True
             )
 
-    # 8. RENDER MODERN EXECUTIVE CARDS
+    # 6. RENDER LIGHT-THEMED CARDS IN 2-COLUMN SIDE-BY-SIDE GRID
     if not results:
         if kpis["total_companies"] == 0:
             st.warning("⚠️ No records loaded. Please click **'🔄 Sync with Cloudflare D1'** at the top or import files!")
         else:
-            st.info("No enterprise records match your search criteria. Try broadening your filters.")
+            st.info("No enterprise records match your search criteria. Try clearing some filters.")
     else:
-        for item in results:
-            canonical_name = item.get("canonical_name", "Unknown Entity")
-            panel_no = item.get("panel_no") or "N/A"
-            pincode = item.get("pincode") or ""
-            address = item.get("address") or "Address not specified."
-            website = item.get("website") or ""
-            nature = item.get("nature_of_business") or "General Enterprise"
+        for row_idx in range(0, len(results), 2):
+            grid_cols = st.columns(2)
 
-            emails = json.loads(item.get("emails") or "[]")
-            phones = json.loads(item.get("phones") or "[]")
-            reps = json.loads(item.get("representatives") or "[]")
+            for col_i in range(2):
+                if row_idx + col_i < len(results):
+                    item = results[row_idx + col_i]
+                    canonical_name = item.get("canonical_name", "Unknown Entity")
+                    panel_no = item.get("panel_no") or "N/A"
+                    pincode = item.get("pincode") or ""
+                    address = item.get("address") or "Address not specified."
+                    website = item.get("website") or ""
+                    nature = item.get("nature_of_business") or "General Enterprise"
 
-            with st.container():
-                st.markdown(f"""
-                <div class="company-card">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                        <div>
-                            <span class="badge badge-panel">Panel #{panel_no}</span>
-                            <span class="badge badge-pin">📮 {pincode if pincode else 'India'}</span>
-                            <h3 style="margin: 8px 0 4px 0; color: #F8FAFC; font-weight: 700;">{canonical_name}</h3>
-                            <p style="color: #94A3B8; font-size: 0.92rem; margin: 0;">📍 {address}</p>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    emails = json.loads(item.get("emails") or "[]")
+                    phones = json.loads(item.get("phones") or "[]")
+                    reps = json.loads(item.get("representatives") or "[]")
 
-                col_info, col_reps = st.columns([1, 1])
-
-                with col_info:
-                    st.markdown("**Enterprise Scope & Verified Line Operations:**")
-                    st.info(nature)
-
-                    if website:
-                        st.markdown(f"<a href='http://{website.replace('http://', '').replace('https://', '')}' target='_blank' class='action-btn'>🌐 {website}</a>", unsafe_allow_html=True)
-
-                    if emails:
-                        st.write("✉️ **Verified Emails:**")
-                        for em in emails:
-                            st.markdown(f"<a href='mailto:{em}' class='action-btn'>✉️ {em}</a>", unsafe_allow_html=True)
-
-                    if phones:
-                        st.write("📞 **Telephones & Office Lines:**")
-                        for ph in phones:
-                            st.markdown(f"<a href='tel:{ph}' class='action-btn'>📞 {ph}</a>", unsafe_allow_html=True)
-
-                with col_reps:
-                    st.markdown("**👥 Key Executives & Decision Makers:**")
-                    if reps and isinstance(reps, list):
-                        for r in reps:
-                            r_name = r.get("name", "Executive")
-                            r_desig = r.get("designation") or "Executive / Director"
-                            r_mob = r.get("mobile") or ""
-
-                            st.markdown(f"""
-                            <div class="exec-pill">
-                                <strong>👤 {r_name}</strong> <span style="color: #38BDF8; font-size: 0.8rem; font-weight: 600;">({r_desig})</span>
-                                {f"<br><a href='tel:{r_mob}' class='action-btn' style='margin-top: 6px;'>📞 Direct Line: {r_mob}</a>" if r_mob else ""}
+                    with grid_cols[col_i]:
+                        st.markdown(f"""
+                        <div class="company-card-grid">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                <div>
+                                    <span class="badge badge-panel">Panel #{panel_no}</span>
+                                    <span class="badge badge-pin">📮 {pincode if pincode else 'India'}</span>
+                                    <h4 style="margin: 6px 0 2px 0; color: #0F172A; font-weight: 700;">{canonical_name}</h4>
+                                    <p style="color: #64748B; font-size: 0.85rem; margin: 0;">📍 {address}</p>
+                                </div>
                             </div>
-                            """, unsafe_allow_html=True)
-                    else:
-                        st.caption("No key executives explicitly cataloged.")
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                st.divider()
+                        c_info, c_reps = st.columns([1, 1])
+
+                        with c_info:
+                            st.markdown("<div style='font-size: 0.8rem; font-weight: 700; color: #475569;'>Enterprise Scope:</div>", unsafe_allow_html=True)
+                            st.caption(nature)
+
+                            if website:
+                                st.markdown(f"<a href='http://{website.replace('http://', '').replace('https://', '')}' target='_blank' class='action-btn'>🌐 {website}</a>", unsafe_allow_html=True)
+
+                            if emails:
+                                st.markdown("<div style='font-size: 0.78rem; font-weight: 700; color: #475569; margin-top: 4px;'>✉️ Verified Emails:</div>", unsafe_allow_html=True)
+                                for em in emails[:2]:
+                                    st.markdown(f"<a href='mailto:{em}' class='action-btn'>✉️ {em}</a>", unsafe_allow_html=True)
+
+                            if phones:
+                                st.markdown("<div style='font-size: 0.78rem; font-weight: 700; color: #475569; margin-top: 4px;'>📞 Telephones:</div>", unsafe_allow_html=True)
+                                for ph in phones[:2]:
+                                    st.markdown(f"<a href='tel:{ph}' class='action-btn'>📞 {ph}</a>", unsafe_allow_html=True)
+
+                        with c_reps:
+                            st.markdown("<div style='font-size: 0.8rem; font-weight: 700; color: #475569;'>👥 Key Executives:</div>", unsafe_allow_html=True)
+                            if reps and isinstance(reps, list):
+                                for r in reps[:3]:
+                                    r_name = r.get("name", "Executive")
+                                    r_desig = r.get("designation") or "Executive / Director"
+                                    r_mob = r.get("mobile") or ""
+
+                                    st.markdown(f"""
+                                    <div class="exec-pill">
+                                        <strong>👤 {r_name}</strong> <span style="color: #0284C7; font-size: 0.75rem; font-weight: 600;">({r_desig})</span>
+                                        {f"<br><a href='tel:{r_mob}' class='action-btn' style='margin-top: 4px;'>📞 {r_mob}</a>" if r_mob else ""}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                            else:
+                                st.caption("No executives explicitly listed.")
+
+                        st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ==============================================================================
