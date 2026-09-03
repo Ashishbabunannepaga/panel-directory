@@ -2,15 +2,16 @@
 """
 Enterprise MSME Directory & Business Intelligence Portal.
 Features:
-- Safe Data View: Deletion/purge triggers removed for maximum data security
-- Dynamic Visual Market Analytics & Interactive Charts
-- In-Page Multi-Faceted Filters & One-Click Industry Chips
-- Real-Time Predictive Search Autocomplete
+- Google-Style Vertical Autocomplete Prediction Dropdown
+- Smooth Auto-Scroll to Resulting Cards on Search/Enter
+- In-Page Multi-Faceted Filters & Sector Quick-Chips
+- Safe Data View: Deletion/Purge triggers removed for data safety
 - Glassmorphism Executive Cards with Direct Action Triggers
 - Role-Based Access Control (Admin vs Standard User)
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pymupdf as fitz
 from PIL import Image
 import io
@@ -38,7 +39,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Premium Modern CSS Theme
+# Custom Executive Theme with Google-Style Dropdown Styling
 st.markdown("""
 <style>
     /* Metric Cards */
@@ -50,11 +51,6 @@ st.markdown("""
         color: #F8FAFC;
         text-align: center;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-    .metric-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(56, 189, 248, 0.5);
     }
     .metric-val {
         font-size: 2rem;
@@ -71,6 +67,17 @@ st.markdown("""
         margin-top: 4px;
     }
 
+    /* Google-Style Dropdown Container */
+    .google-dropdown-box {
+        background-color: #1E293B;
+        border: 1px solid #38BDF8;
+        border-radius: 0 0 14px 14px;
+        padding: 8px 12px;
+        margin-top: -14px;
+        margin-bottom: 20px;
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
+    }
+
     /* Executive Company Cards */
     .company-card {
         background: linear-gradient(145deg, #0F172A 0%, #1E293B 100%);
@@ -79,11 +86,10 @@ st.markdown("""
         padding: 22px;
         margin-bottom: 18px;
         box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.35);
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        transition: border-color 0.2s ease;
     }
     .company-card:hover {
         border-color: #38BDF8;
-        box-shadow: 0 16px 32px -8px rgba(56, 189, 248, 0.15);
     }
     
     /* Badges */
@@ -94,11 +100,9 @@ st.markdown("""
         font-size: 0.78rem;
         font-weight: 600;
         margin-right: 8px;
-        letter-spacing: 0.03em;
     }
     .badge-panel { background: linear-gradient(90deg, #0284C7, #0369A1); color: white; }
     .badge-pin { background: linear-gradient(90deg, #D97706, #B45309); color: white; }
-    .badge-sector { background: linear-gradient(90deg, #4F46E5, #4338CA); color: white; }
 
     /* Executive Pills */
     .exec-pill {
@@ -123,7 +127,6 @@ st.markdown("""
         margin-right: 8px;
         margin-top: 4px;
         display: inline-block;
-        transition: background-color 0.2s ease, color 0.2s ease;
     }
     .action-btn:hover {
         background-color: #38BDF8;
@@ -157,6 +160,8 @@ if "page_audit_logs" not in st.session_state:
     st.session_state.page_audit_logs = []
 if "search_input_val" not in st.session_state:
     st.session_state.search_input_val = ""
+if "should_scroll" not in st.session_state:
+    st.session_state.should_scroll = False
 
 rotator = st.session_state.rotator
 vision_agent = VisionExtractionAgent(rotator)
@@ -267,7 +272,7 @@ else:
 
 
 # ==============================================================================
-# TAB 1: INTERACTIVE DIRECTORY & MARKET INTELLIGENCE
+# TAB 1: GOOGLE-STYLE PREDICTIVE SEARCH & EXECUTIVE INTELLIGENCE
 # ==============================================================================
 with tab_search:
     # 1. KPI EXECUTIVE DASHBOARD
@@ -294,36 +299,46 @@ with tab_search:
         with chip_cols[idx]:
             if st.button(s_name, key=f"quick_chip_{idx}", use_container_width=True):
                 st.session_state.search_input_val = "" if s_name == "All" else s_name
+                st.session_state.should_scroll = True
                 st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 3. PREDICTIVE SEARCH BAR
+    # 3. GOOGLE-STYLE PREDICTIVE SEARCH BAR
+    def on_search_enter():
+        st.session_state.should_scroll = True
+
     f_search = st.text_input(
         "🔍 Global Predictive Search",
         value=st.session_state.search_input_val,
-        placeholder="Type company name, acronym, executive, product, or district (e.g. 'Apex', 'Biological', 'Siddipet')...",
-        key="main_search_input"
+        placeholder="Search company name, director, product, or location (Press Enter to jump to results)...",
+        key="main_search_input",
+        on_change=on_search_enter
     )
 
-    # Live Suggestions Dropdown Pills
+    # GOOGLE-STYLE VERTICAL PREDICTIONS OVERLAY (Directly beneath the input box)
     if f_search and len(f_search.strip()) >= 2:
-        suggestions = db.get_quick_suggestions(f_search, limit=5)
+        suggestions = db.get_quick_suggestions(f_search, limit=6)
         if suggestions:
-            st.markdown("<div style='margin-bottom: 6px; font-size: 0.85rem; color: #38BDF8;'>💡 <strong>Instant Matches:</strong></div>", unsafe_allow_html=True)
-            sug_cols = st.columns(len(suggestions))
+            st.markdown("<div class='google-dropdown-box'>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 0.78rem; color: #94A3B8; margin-bottom: 6px; padding-left: 6px;'>PREDICTED MATCHES (Click to jump):</div>", unsafe_allow_html=True)
+            
             for i, sug in enumerate(suggestions):
-                p_no = f"#{sug['panel_no']} " if sug.get('panel_no') else ""
-                btn_label = f"🏢 {p_no}{sug['canonical_name']}"
-                with sug_cols[i]:
-                    if st.button(btn_label, key=f"sug_btn_{i}", use_container_width=True):
-                        st.session_state.search_input_val = sug["canonical_name"]
-                        st.rerun()
+                p_no = f"Panel #{sug['panel_no']}" if sug.get('panel_no') else "Verified Entity"
+                loc_summary = sug.get('nature_of_business', '')[:45] + "..." if sug.get('nature_of_business') else ""
+                btn_text = f"🔍  {sug['canonical_name']}   —   [{p_no}]   {loc_summary}"
+                
+                if st.button(btn_text, key=f"g_sug_{i}", use_container_width=True):
+                    st.session_state.search_input_val = sug["canonical_name"]
+                    st.session_state.should_scroll = True
+                    st.rerun()
+            
+            st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # 4. MULTI-FACETED FILTERS & SORT CONTROLS
-    with st.expander("🎛️ Advanced Filters & Sorting Controls", expanded=True):
+    with st.expander("🎛️ Advanced Filters & Sorting Controls", expanded=False):
         col_f1, col_f2, col_f3, col_f4 = st.columns(4)
 
         with col_f1:
@@ -359,6 +374,7 @@ with tab_search:
         with col_clear:
             if st.button("🧹 Reset Filters", use_container_width=True):
                 st.session_state.search_input_val = ""
+                st.session_state.should_scroll = False
                 st.rerun()
 
     # 5. QUERY EXECUTION
@@ -385,36 +401,28 @@ with tab_search:
         elif f_sort == "Company Name (Z-A)":
             results.sort(key=lambda x: (x.get("canonical_name") or "").lower(), reverse=True)
 
-    # 6. INTERACTIVE MARKET INTELLIGENCE DRAWER (Visual Charts)
-    if results and len(results) > 1:
-        with st.expander("📊 Market Intelligence & Cluster Analytics", expanded=False):
-            c_chart1, c_chart2 = st.columns(2)
-            
-            df_curr = pd.DataFrame(results)
-            
-            with c_chart1:
-                st.markdown("**Top Industrial Sectors in Current Selection:**")
-                # Simple keyword extraction for visualization
-                sector_counts = {}
-                for bus in df_curr["nature_of_business"].dropna():
-                    for kw in ["Pharma", "Chemical", "Steel", "Food", "Plastic", "Fabrication", "Solar", "Packaging", "Cotton", "Electronics"]:
-                        if kw.lower() in bus.lower():
-                            sector_counts[kw] = sector_counts.get(kw, 0) + 1
-                
-                if sector_counts:
-                    df_sectors = pd.DataFrame(list(sector_counts.items()), columns=["Sector", "Entities"]).sort_values(by="Entities", ascending=False).head(6)
-                    st.bar_chart(df_sectors.set_index("Sector"), color="#38BDF8")
-                else:
-                    st.caption("No sector breakdown available.")
+    # 6. ANCHOR TARGET FOR SMOOTH AUTO-SCROLL
+    st.markdown("<div id='search-results-target'></div>", unsafe_allow_html=True)
 
-            with c_chart2:
-                st.markdown("**Top Postal / Area Clusters:**")
-                pin_counts = df_curr["pincode"].replace('', 'Not Specified').value_counts().head(6)
-                st.bar_chart(pin_counts, color="#818CF8")
+    # Trigger Smooth Auto-Scroll via JavaScript if a search was performed
+    if (f_search or st.session_state.should_scroll) and results:
+        components.html(
+            """
+            <script>
+                setTimeout(() => {
+                    const target = window.parent.document.getElementById('search-results-target');
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 150);
+            </script>
+            """,
+            height=0,
+            width=0
+        )
+        st.session_state.should_scroll = False
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 7. TOOLBAR: MATCH COUNT & DUAL EXPORTS (CSV / JSON)
+    # 7. TOOLBAR: MATCH COUNT & EXPORTS
     col_res_header, col_csv, col_json = st.columns([3, 1, 1])
     
     with col_res_header:
@@ -448,7 +456,7 @@ with tab_search:
         if kpis["total_companies"] == 0:
             st.warning("⚠️ No records loaded. Please click **'🔄 Sync with Cloudflare D1'** at the top or import files!")
         else:
-            st.info("No enterprise records match your search criteria. Try clearing some filters.")
+            st.info("No enterprise records match your search criteria. Try broadening your filters.")
     else:
         for item in results:
             canonical_name = item.get("canonical_name", "Unknown Entity")
