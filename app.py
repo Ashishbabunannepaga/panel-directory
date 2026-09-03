@@ -18,7 +18,7 @@ import json
 import re
 import time
 import pandas as pd
-from typing import List, Dict, Any, Optional, Tuple
+
 from key_rotator import GeminiKeyRotator
 from cloudflare_db import CloudflareD1
 from agent_engine import (
@@ -184,7 +184,7 @@ vision_agent = VisionExtractionAgent(rotator)
 
 
 # ==============================================================================
-# 🔐 AUTHENTICATION GATEWAY (Light Mode)
+# 🔐 AUTHENTICATION GATEWAY (Light Mode - Direct Login Only)
 # ==============================================================================
 
 if not st.session_state.authenticated:
@@ -195,26 +195,21 @@ if not st.session_state.authenticated:
 
     with col_center:
         st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
-        auth_tab_login = st.tabs(["🔑 Sign In"])
-
-        with auth_tab_login:
-            st.subheader("Login to Portal")
-            login_username = st.text_input("Username", key="l_user")
-            login_password = st.text_input("Password", type="password", key="l_pwd")
-
-            if st.button("🚀 Sign In", use_container_width=True):
-                user = db.authenticate_user(login_username, login_password)
-                if user:
-                    st.session_state.authenticated = True
-                    st.session_state.user_info = user
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password.")
-
-            
-
-    
+        st.subheader("🔑 Sign In to Portal")
         
+        login_username = st.text_input("Username", key="l_user", placeholder="Enter your username")
+        login_password = st.text_input("Password", type="password", key="l_pwd", placeholder="Enter your password")
+
+        if st.button("🚀 Sign In", use_container_width=True):
+            user = db.authenticate_user(login_username, login_password)
+            if user:
+                st.session_state.authenticated = True
+                st.session_state.user_info = user
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+
+        st.caption("Default Admin: `admin` / `admin123`")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
