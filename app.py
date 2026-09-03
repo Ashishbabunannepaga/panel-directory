@@ -213,20 +213,7 @@ if not st.session_state.authenticated:
 
             
 
-        with auth_tab_register:
-            st.subheader("Register Account")
-            reg_name = st.text_input("Full Name", key="r_name")
-            reg_username = st.text_input("Username", key="r_user")
-            reg_password = st.text_input("Password", type="password", key="r_pwd")
-
-            if st.button("✨ Register", use_container_width=True):
-                if reg_username and reg_password:
-                    if db.create_user(reg_username, reg_password, role="user", full_name=reg_name):
-                        st.success("Account created successfully! Please sign in.")
-                    else:
-                        st.error("Username already exists.")
-                else:
-                    st.warning("All fields are required.")
+    
         
         st.markdown("</div>", unsafe_allow_html=True)
 
