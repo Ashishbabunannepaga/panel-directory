@@ -3,6 +3,8 @@
 Enterprise MSME Directory & Business Intelligence Portal.
 Theme: Modern Executive Light Mode (High Contrast & Clean Typography)
 Features:
+- Press-Enter-To-Login with Form Autofill Support & Secure Gateway
+- Background Auto-Sync Engine for Cloudflare D1
 - Responsive 2-Column Side-by-Side Card Grid (Widescreen Optimized)
 - Compact Side-by-Side Search Bar & Dropdown Command Center
 - Instant First-Screen View (Zero Unnecessary Scrolling)
@@ -38,10 +40,27 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Modern Executive Light Mode CSS
+# Modern Executive Light Mode CSS with Subtle Animations
 st.markdown("""
 <style>
-    /* Global Light Background */
+    /* Global Animations & Base */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes pulseDot {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+
     .stApp {
         background-color: #F8FAFC;
         color: #0F172A;
@@ -50,25 +69,27 @@ st.markdown("""
     /* Metric Cards */
     .metric-card {
         background: linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%);
-        padding: 14px;
+        padding: 16px;
         border-radius: 12px;
         border: 1px solid #E2E8F0;
         color: #0F172A;
         text-align: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+        animation: fadeInUp 0.35s ease-out;
     }
     .metric-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(2, 132, 199, 0.12);
+        box-shadow: 0 8px 20px rgba(2, 132, 199, 0.12);
         border-color: #38BDF8;
     }
     .metric-val {
-        font-size: 1.6rem;
+        font-size: 1.65rem;
         font-weight: 800;
         background: linear-gradient(90deg, #0284C7, #4F46E5);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        letter-spacing: -0.02em;
     }
     .metric-lbl {
         font-size: 0.74rem;
@@ -89,6 +110,7 @@ st.markdown("""
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
         transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
         min-height: 100%;
+        animation: fadeInUp 0.3s ease-out;
     }
     .company-card-grid:hover {
         border-color: #0284C7;
@@ -119,6 +141,10 @@ st.markdown("""
         margin-top: 6px;
         font-size: 0.85rem;
         color: #1E293B;
+        transition: background-color 0.15s ease;
+    }
+    .exec-pill:hover {
+        background-color: #F1F5F9;
     }
     
     /* Action Buttons */
@@ -134,21 +160,34 @@ st.markdown("""
         margin-right: 5px;
         margin-top: 4px;
         display: inline-block;
-        transition: all 0.2s ease;
+        transition: all 0.18s ease;
     }
     .action-btn:hover {
         background-color: #0284C7;
         color: #FFFFFF !important;
         border-color: #0284C7;
+        transform: translateY(-1px);
     }
 
-    /* Auth Box */
+    /* Elevated Login Container */
     .auth-container {
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 24px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+        border-radius: 16px;
+        padding: 32px 28px;
+        box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.03);
+        animation: fadeInUp 0.4s ease-out;
+    }
+
+    /* Pulsating Live Dot */
+    .live-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background-color: #10B981;
+        border-radius: 50%;
+        margin-right: 6px;
+        animation: pulseDot 1.8s infinite;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -178,46 +217,91 @@ if "page_audit_logs" not in st.session_state:
     st.session_state.page_audit_logs = []
 if "search_input_val" not in st.session_state:
     st.session_state.search_input_val = ""
+if "last_auto_sync" not in st.session_state:
+    st.session_state.last_auto_sync = 0.0
 
 rotator = st.session_state.rotator
 vision_agent = VisionExtractionAgent(rotator)
 
 
 # ==============================================================================
-# 🔐 AUTHENTICATION GATEWAY (Light Mode - Direct Login Only)
+# 🔄 NON-BLOCKING BACKGROUND AUTO-SYNC ENGINE
+# ==============================================================================
+
+def check_and_run_background_sync(interval_seconds: int = 45):
+    """
+    Silently checks and pulls updates from Cloudflare D1 in the background
+    without disrupting active user keystrokes or wiping search filter states.
+    """
+    now = time.time()
+    if now - st.session_state.last_auto_sync > interval_seconds:
+        st.session_state.last_auto_sync = now
+        try:
+            # Perform quiet sync
+            db.sync_from_cloudflare_d1()
+        except Exception:
+            pass
+
+
+# ==============================================================================
+# 🔐 AUTHENTICATION GATEWAY (Press-Enter-To-Login with Form Autofill)
 # ==============================================================================
 
 if not st.session_state.authenticated:
-    st.markdown("<h2 style='text-align: center; margin-top: 40px; color: #0F172A;'>🏢 MSME Directory Executive Portal</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #64748B;'>Enterprise Contact & Entity Disambiguation Platform</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: 50px; color: #0F172A; font-weight: 800;'>🏢 MSME Directory Executive Portal</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #64748B; font-size: 0.95rem; margin-bottom: 24px;'>Enterprise Contact Disambiguation & Intelligence Engine</p>", unsafe_allow_html=True)
 
-    col_center = st.columns([1, 2, 1])[1]
+    col_center = st.columns([1, 1.4, 1])[1]
 
     with col_center:
         st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
-        st.subheader("🔑 Sign In to Portal")
-        
-        login_username = st.text_input("Username", key="l_user", placeholder="Enter your username")
-        login_password = st.text_input("Password", type="password", key="l_pwd", placeholder="Enter your password")
+        st.markdown("<h3 style='margin-top: 0; color: #0F172A; font-size: 1.25rem;'>🔑 Sign In to Portal</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748B; font-size: 0.85rem; margin-bottom: 16px;'>Enter credentials and press <strong>Enter</strong> to sign in.</p>", unsafe_allow_html=True)
 
-        if st.button("🚀 Sign In", use_container_width=True):
-            user = db.authenticate_user(login_username, login_password)
-            if user:
-                st.session_state.authenticated = True
-                st.session_state.user_info = user
-                st.rerun()
-            else:
-                st.error("Invalid username or password.")
+        # Native Form: Allows Pressing ENTER on keyboard anywhere inside to log in instantly
+        with st.form(key="login_gateway_form", clear_on_submit=False):
+            login_username = st.text_input(
+                "Username",
+                key="l_user",
+                placeholder="Enter username (e.g. admin)",
+                autocomplete="username"
+            )
+            login_password = st.text_input(
+                "Password",
+                type="password",
+                key="l_pwd",
+                placeholder="Enter password",
+                autocomplete="current-password"
+            )
 
-        
+            st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+            submit_login = st.form_submit_button("🚀 Sign In", use_container_width=True, type="primary")
+
+            if submit_login:
+                if not login_username.strip() or not login_password.strip():
+                    st.warning("⚠️ Please provide both username and password.")
+                else:
+                    user = db.authenticate_user(login_username, login_password)
+                    if user:
+                        st.session_state.authenticated = True
+                        st.session_state.user_info = user
+                        st.session_state.last_auto_sync = 0.0  # Trigger immediate sync on login
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid username or password. Please try again.")
+
+        st.caption("Default Admin Credentials: `admin` / `admin123`")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
 
 
 # ==============================================================================
-# 👤 TOP NAVIGATION & CLOUD PIPELINE STATUS (Light Mode)
+# 👤 TOP NAVIGATION & CLOUD PIPELINE STATUS
 # ==============================================================================
+
+# Run background sync check
+check_and_run_background_sync(interval_seconds=45)
 
 current_user = st.session_state.user_info
 is_admin = current_user.get("role") == "admin"
@@ -238,13 +322,19 @@ pipe_status = db.get_pipeline_status()
 col_pipe_info, col_pipe_btn = st.columns([3, 1])
 
 with col_pipe_info:
-    status_icon = "🟢" if pipe_status["cloud_online"] else "🟡"
-    st.info(f"{status_icon} **Cloudflare D1 Pipeline:** `{pipe_status['cloud_count']} Cloud Records` | **Local Storage:** `{pipe_status['local_count']} Clean Records Loaded`")
+    status_icon = "<span class='live-dot'></span>" if pipe_status["cloud_online"] else "🟡"
+    st.markdown(
+        f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; color: #334155;'>"
+        f"{status_icon} <strong>Cloudflare D1 Pipeline:</strong> <code>{pipe_status['cloud_count']} Cloud Records</code> | "
+        f"<strong>Local Cache:</strong> <code>{pipe_status['local_count']} Clean Records Loaded</code> (Auto-Sync Active)"
+        f"</div>",
+        unsafe_allow_html=True
+    )
 
 with col_pipe_btn:
     if is_admin:
-        if st.button("🔄 Sync with Cloudflare D1", use_container_width=True):
-            with st.spinner("Synchronizing records from Cloudflare D1..."):
+        if st.button("🔄 Manual Cloud Sync", use_container_width=True, help="Force immediate pull from Cloudflare D1"):
+            with st.spinner("Synchronizing with Cloudflare D1..."):
                 synced_cnt, msg = db.sync_from_cloudflare_d1()
                 if synced_cnt > 0:
                     st.success(msg)
@@ -406,7 +496,9 @@ with tab_search:
     # 6. RENDER LIGHT-THEMED CARDS IN 2-COLUMN SIDE-BY-SIDE GRID
     if not results:
         if kpis["total_companies"] == 0:
-            st.warning("⚠️ No records loaded. Please click **'🔄 Sync with Cloudflare D1'** at the top or import files!")
+            st.warning("⚠️ No records loaded in cache yet. Synchronizing with Cloudflare D1...")
+            db.sync_from_cloudflare_d1()
+            st.rerun()
         else:
             st.info("No enterprise records match your search criteria. Try clearing some filters.")
     else:
