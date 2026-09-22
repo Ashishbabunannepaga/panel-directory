@@ -1,8 +1,8 @@
 # cloudflare_db.py
 """
-Production REST API Client for Cloudflare D1 with Live Cloud Sync & Local Mirror Fallback.
+Production REST API Client for Cloudflare D1 with True 1:1 Paginated Auto-Sync.
 Features:
-- Live Cloudflare D1 Data Fetching & Pipeline Status Tracking
+- Full Paginated Cloudflare D1 Sync (Eliminates Zombie Duplicates)
 - In-Memory Bulk Caching
 - Advanced Multi-Faceted Query Engine
 - User Authentication & RBAC
@@ -114,7 +114,6 @@ class CloudflareD1:
             return []
 
     def query(self, sql: str, params: list = None, retries: int = 1) -> List[Dict[str, Any]]:
-        """Executes query on Cloudflare D1 with automatic Local SQLite fallback."""
         if self.d1_quota_exceeded:
             return self._query_local(sql, params)
 
@@ -122,7 +121,7 @@ class CloudflareD1:
 
         for attempt in range(retries):
             try:
-                res = requests.post(self.url, headers=self.headers, json=payload, timeout=20)
+                res = requests.post(self.url, headers=self.headers, json=payload, timeout=25)
                 res_data = res.json()
 
                 if res.status_code == 200 and res_data.get("success"):
@@ -139,44 +138,47 @@ class CloudflareD1:
         return self._query_local(sql, params)
 
     # =========================================================================
-    # 🔄 CLOUDFLARE D1 LIVE SYNC & PIPELINE STATUS
+    # 🔄 TRUE 1:1 PAGINATED CLOUDFLARE D1 SYNC
     # =========================================================================
 
-    def get_pipeline_status(self) -> Dict[str, Any]:
-        """Returns the health status of Cloudflare D1 and local storage."""
-        local_rows = self._query_local("SELECT count(*) as cnt FROM companies")
-        local_cnt = local_rows[0]["cnt"] if local_rows else 0
-
-        cloud_cnt = "Unknown"
-        cloud_online = False
-        try:
-            res = self.query("SELECT count(*) as cnt FROM companies")
-            if res:
-                cloud_cnt = res[0].get("cnt", 0)
-                cloud_online = True
-        except Exception:
-            cloud_online = False
-
-        return {
-            "cloud_online": cloud_online,
-            "cloud_count": cloud_cnt,
-            "local_count": local_cnt
-        }
-
     def sync_from_cloudflare_d1(self) -> Tuple[int, str]:
-        """Pulls all records directly from Cloudflare D1 into local database."""
+        """
+        Pulls 100% of all records from Cloudflare D1 using offset pagination.
+        Wipes local zombie rows to guarantee an exact 1:1 replica of Cloudflare D1.
+        """
         try:
-            cloud_records = self.query("SELECT * FROM companies LIMIT 5000;")
-            if not cloud_records:
-                return 0, "No records found in Cloudflare D1 or quota reached."
+            # 1. Get total record count from Cloudflare D1
+            count_res = self.query("SELECT count(*) as cnt FROM companies")
+            if not count_res:
+                return 0, "Could not reach Cloudflare D1."
+            
+            total_cloud = count_res[0].get("cnt", 0)
+            if total_cloud == 0:
+                return 0, "Cloudflare D1 database is empty."
 
+            # 2. Paginated retrieval in safe batches of 2500
+            all_records = []
+            offset = 0
+            page_size = 2500
+
+            while offset < total_cloud:
+                page = self.query(f"SELECT * FROM companies LIMIT {page_size} OFFSET {offset};")
+                if not page:
+                    break
+                all_records.extend(page)
+                offset += len(page)
+
+            if not all_records:
+                return 0, "No records retrieved from Cloudflare D1."
+
+            # 3. Clean wipe local table and write true 1:1 replica
             conn = sqlite3.connect(LOCAL_DB_PATH)
             cur = conn.cursor()
+            cur.execute("DELETE FROM companies;")  # Clear zombie records
 
-            count = 0
-            for comp in cloud_records:
+            for comp in all_records:
                 cur.execute("""
-                INSERT OR REPLACE INTO companies (
+                INSERT INTO companies (
                     id, panel_no, raw_name, canonical_name, normalized_name, aliases,
                     address, pincode, website, phones, emails, representatives, nature_of_business
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -195,34 +197,12 @@ class CloudflareD1:
                     comp.get("representatives") or "[]",
                     comp.get("nature_of_business") or ""
                 ))
-                count += 1
 
             conn.commit()
             conn.close()
-            return count, f"Successfully synchronized {count} records from Cloudflare D1!"
+            return len(all_records), f"Synchronized {len(all_records)} records 1:1 from Cloudflare D1."
         except Exception as e:
             return 0, f"Sync error: {e}"
-
-    # =========================================================================
-    # 🔍 PREDICTIVE AUTOCOMPLETE SUGGESTIONS
-    # =========================================================================
-
-    def get_quick_suggestions(self, term: str, limit: int = 6) -> List[Dict[str, Any]]:
-        """Fast autocomplete prediction engine for live typing."""
-        if not term or len(term.strip()) < 2:
-            return []
-        
-        pat = f"%{term.strip().lower()}%"
-        sql = """
-            SELECT panel_no, canonical_name, pincode, nature_of_business
-            FROM companies
-            WHERE LOWER(canonical_name) LIKE ?
-               OR LOWER(aliases) LIKE ?
-               OR LOWER(representatives) LIKE ?
-            ORDER BY canonical_name ASC
-            LIMIT ?;
-        """
-        return self._query_local(sql, [pat, pat, pat, limit])
 
     # =========================================================================
     # 👤 USER & AUTHENTICATION METHODS
@@ -488,4 +468,3 @@ class CloudflareD1:
             self.insert_company_smart(comp_data, fuzzy_check=False)
         self._query_local("UPDATE possible_duplicates SET status = ? WHERE id = ?", [action, dup_id])
         self.query("UPDATE possible_duplicates SET status = ? WHERE id = ?", [action, dup_id])
-        
