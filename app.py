@@ -32,7 +32,7 @@ from agent_engine import (
 
 # Page Configuration
 st.set_page_config(
-    page_title="MSME Executive Directory Portal",
+    page_title="Panel Directory",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="collapsed"
