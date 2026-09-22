@@ -188,7 +188,7 @@ vision_agent = VisionExtractionAgent(rotator)
 # ==============================================================================
 
 if not st.session_state.authenticated:
-    st.markdown("<h2 style='text-align: center; margin-top: 50px; color: #0F172A; font-weight: 800;'>🏢 MSME Directory Executive Portal</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: 50px; color: #0F172A; font-weight: 800;'>🏢 Panel Directory</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #64748B; font-size: 0.95rem; margin-bottom: 24px;'>Enterprise Contact Disambiguation & Intelligence Engine</p>", unsafe_allow_html=True)
 
     col_center = st.columns([1, 1.4, 1])[1]
@@ -249,7 +249,7 @@ is_admin = current_user.get("role") == "admin"
 c_head_left, c_head_right = st.columns([3, 1])
 
 with c_head_left:
-    st.markdown(f"### 🏢 MSME Executive Directory Portal")
+    st.markdown(f"### 🏢 Panel Directory")
     st.caption(f"Logged in as **{current_user.get('full_name') or current_user.get('username')}** ({'🛡️ Master Administrator' if is_admin else '👥 Standard User'})")
 
 with c_head_right:
